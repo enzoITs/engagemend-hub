@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://internal/schemas/whatsapp-message/v1.0.0.json",
+  "title": "WhatsAppMessage",
+  "description": "Contrato de saída do pipeline de coleta e anonimização de conversas de WhatsApp. Versionado como v1.0.0 — mudanças exigem versionamento explícito (v1.1.0, v2.0.0, ...).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "message_id",
+    "group_hash",
+    "author_hash",
+    "timestamp",
+    "message_type",
+    "char_count",
+    "word_count",
+    "has_mention",
+    "mentioned_hashes",
+    "has_url",
+    "is_edited",
+    "source_platform",
+    "seq_in_group",
+    "parser_version"
+  ],
+  "properties": {
+    "message_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "UUID4 gerado deterministicamente a partir de (group_hash + seq_in_group)."
+    },
+    "group_hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32}$",
+      "description": "HMAC-SHA256 do nome do grupo, truncado para 32 caracteres hexadecimais."
+    },
+    "author_hash": {
+      "type": ["string", "null"],
+      "pattern": "^[0-9a-f]{32}$",
+      "description": "HMAC-SHA256 do identificador normalizado do autor. Nulo apenas para message_type == 'system'."
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 com timezone, ex: 2026-03-08T14:32:45-03:00."
+    },
+    "message_type": {
+      "type": "string",
+      "enum": [
+        "text",
+        "media_image",
+        "media_video",
+        "media_audio",
+        "media_sticker",
+        "media_document",
+        "media_gif",
+        "location",
+        "contact_card",
+        "poll",
+        "system",
+        "deleted"
+      ]
+    },
+    "char_count": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Campo crítico para detecção de flood a jusante. Nunca nulo."
+    },
+    "word_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "has_mention": {
+      "type": "boolean"
+    },
+    "mentioned_hashes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{32}$"
+      }
+    },
+    "has_url": {
+      "type": "boolean"
+    },
+    "is_edited": {
+      "type": "boolean"
+    },
+    "source_platform": {
+      "type": "string",
+      "enum": ["android", "ios"]
+    },
+    "seq_in_group": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Posição ordinal da mensagem no arquivo processado, começando em 1. Campo crítico para detecção de flood a jusante. Nunca nulo. Estável entre execuções sobre o mesmo arquivo."
+    },
+    "parser_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "message_type": { "const": "system" } }
+      },
+      "then": {
+        "properties": { "author_hash": { "const": null } }
+      }
+    },
+    {
+      "if": {
+        "not": {
+          "properties": { "message_type": { "const": "system" } }
+        }
+      },
+      "then": {
+        "properties": {
+          "author_hash": { "type": "string", "pattern": "^[0-9a-f]{32}$" }
+        }
+      }
+    }
+  ]
+}

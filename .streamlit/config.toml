@@ -1,0 +1,8 @@
+# Limite de upload no nível do servidor Streamlit (em MB).
+#
+# Isto é diferente de MAX_UPLOAD_SIZE_MB (.env) — Streamlit rejeita o
+# upload ANTES do código do app rodar se o arquivo exceder este valor,
+# então os dois precisam ficar sincronizados manualmente. Para grupos
+# grandes (exports > 200 MB), aumente aqui.
+[server]
+maxUploadSize = 200

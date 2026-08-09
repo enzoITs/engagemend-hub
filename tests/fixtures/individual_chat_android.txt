@@ -1,0 +1,8 @@
+08/03/2026 09:00 - As mensagens e as ligações são protegidas com criptografia de ponta a ponta. Ninguém fora desta conversa, nem mesmo o WhatsApp, pode lê-las ou ouvi-las.
+13/03/2026 10:15 - João Silva: Oi, tudo bem?
+13/03/2026 10:16 - Maria Costa: Tudo, e você?
+13/03/2026 10:17 - João Silva: Também! Vi sua mensagem sobre o projeto
+13/03/2026 10:18 - Maria Costa: Isso, precisamos conversar sobre o cronograma
+14/03/2026 08:00 - João Silva: <Mídia oculta>
+14/03/2026 08:01 - Maria Costa: Recebi, obrigada!
+15/03/2026 11:30 - João Silva: Esta mensagem foi apagada
