@@ -1,0 +1,168 @@
+// EngageMend — event store do coletor de Discord (M1).
+//
+// Regra arquitetural (§1): `member_events` é append-only. Nenhum código de
+// produção pode rodar UPDATE ou DELETE nessa tabela. O classificador só lê.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+/// Uma comunidade por (plataforma, id externo) — guild do Discord, canal do
+/// YouTube, grupo do WhatsApp. Antes da fusão multi-plataforma isso não
+/// existia: o bot servia um único guildId implícito.
+model Community {
+  id         String   @id @default(cuid())
+  platform   String
+  externalId String
+  name       String
+  icon       String?
+  syncState  String   @default("conectada")
+  syncedAt   DateTime @default(now())
+  createdAt  DateTime @default(now())
+  ownerId    String
+  owner      User     @relation(fields: [ownerId], references: [id])
+  disabledAt DateTime?
+
+  events MemberEvent[]
+
+  @@unique([platform, externalId])
+  @@map("communities")
+}
+
+/// Única tabela que liga hash ↔ identidade real. Tratamento especial em export (§3).
+/// `platform` + `externalUserId` generaliza o antigo `discordId` único —
+/// mesma pessoa em plataformas diferentes continua virando hashes
+/// diferentes (sem match de identidade entre plataformas, de propósito).
+model MemberIdentity {
+  memberHash     String    @id
+  platform       String    @default("discord")
+  externalUserId String?
+  discordId      String?   @unique
+  username       String
+  displayName    String?
+  isBot          Boolean   @default(false)
+  joinedAt       DateTime?
+  firstSeenAt    DateTime  @default(now())
+
+  @@unique([platform, externalUserId])
+  @@map("member_identity")
+}
+
+/// Append-only. `dedupe_key` garante que rodar o backfill duas vezes não duplica evento.
+model MemberEvent {
+  id          BigInt     @id @default(autoincrement())
+  memberHash  String
+  guildId     String
+  communityId String?
+  community   Community? @relation(fields: [communityId], references: [id])
+  source      String     @default("discord")
+  eventType   String
+  contextId   String?
+  refId       String?
+  metadata    Json       @default("{}")
+  occurredAt  DateTime
+  ingestedAt  DateTime   @default(now())
+
+  @@unique([memberHash, eventType, refId], name: "dedupe_key")
+  @@index([memberHash, occurredAt])
+  @@index([occurredAt])
+  @@index([communityId])
+  @@map("member_events")
+}
+
+/// Estado derivado. Pode ser truncado e reconstruído a qualquer momento a partir
+/// de `member_events` — é isso que torna `--full-recompute` barato (§1.4).
+model MemberProfile {
+  memberHash      String    @id
+  currentLevel    Int
+  score30d        Float
+  scoreLifetime   Float
+  levelSince      DateTime
+  firstActivityAt DateTime?
+  lastActivityAt  DateTime?
+
+  axisConsumption Float @default(0)
+  axisProduction  Float @default(0)
+  axisReciprocity Float @default(0)
+  axisInfluence   Float @default(0)
+
+  computedAt     DateTime
+  weightsVersion String
+
+  @@map("member_profiles")
+}
+
+/// O que a M2 consome é a transição, não o nível (§6).
+model LevelTransition {
+  id         BigInt   @id @default(autoincrement())
+  memberHash String
+  communityId String?
+  fromLevel  Int?
+  toLevel    Int
+  scoreAt    Float
+  reason     String // "promotion" | "demotion" | "initial" | "recompute"
+  occurredAt DateTime @default(now())
+  readAt     DateTime?
+
+  @@index([memberHash, occurredAt])
+  @@index([communityId, readAt])
+  @@map("level_transitions")
+}
+
+model User {
+  id          String       @id @default(cuid())
+  email       String       @unique
+  createdAt   DateTime     @default(now())
+  communities Community[]
+  jobs        Job[]
+  sessions    Session[]
+
+  @@map("users")
+}
+
+model MagicLinkToken {
+  id        String    @id @default(cuid())
+  email     String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([email])
+  @@map("magic_link_tokens")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model Job {
+  id         String    @id @default(cuid())
+  ownerId    String
+  owner      User      @relation(fields: [ownerId], references: [id])
+  kind       String
+  status     String    @default("queued")
+  payload    Json
+  log        String?
+  error      String?
+  createdAt  DateTime  @default(now())
+  startedAt  DateTime?
+  finishedAt DateTime?
+
+  @@index([ownerId, createdAt])
+  @@index([status])
+  @@map("jobs")
+}
