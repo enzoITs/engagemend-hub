@@ -14,7 +14,7 @@
 
 export type EngagementLevel = 1 | 2 | 3 | 4 | 5;
 
-export type EventSource = 'discord' | 'youtube' | 'csv' | 'manual';
+export type EventSource = 'discord' | 'youtube' | 'whatsapp' | 'csv' | 'manual';
 
 export type EventType =
   | 'reaction_given'

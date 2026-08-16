@@ -20,9 +20,11 @@ RUN pnpm prisma generate
 
 COPY engagemend-discord ./
 COPY engagemend-youtube /app/engagemend-youtube
+COPY engagemend-whatsapp /app/engagemend-whatsapp
 COPY interface_da_engagemend /app/interface_da_engagemend
 
 RUN pip install --break-system-packages -r /app/engagemend-youtube/requirements.txt
+RUN pip install --break-system-packages /app/engagemend-whatsapp
 
 RUN sh /app/interface_da_engagemend/_build/montar.sh
 RUN cp /app/interface_da_engagemend/engagemend-painel-v4-http.html /app/engagemend-painel-v4-http.html

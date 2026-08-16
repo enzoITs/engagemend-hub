@@ -1,4 +1,5 @@
 import cookie from '@fastify/cookie';
+import multipart from '@fastify/multipart';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { logger } from '../lib/logger.js';
 import { sessionPlugin } from './plugins/session.js';
@@ -11,6 +12,7 @@ import { registerConfiguracoesRoutes } from './configuracoes.js';
 export function buildServer(): FastifyInstance {
   const app = Fastify({ loggerInstance: logger as never });
   app.register(cookie);
+  app.register(multipart);
   app.register(registerAuthRoutes);
   app.register(sessionPlugin);
   app.register(registerConexoesRoutes);

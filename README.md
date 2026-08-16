@@ -22,11 +22,14 @@ Leia o plano inteiro antes de mexer em qualquer coisa da Fase 2 — cada task do
 |---|---|---|
 | `engagemend-discord/` | Motor (eixos/portas/histerese), coletor Discord multi-guild, worker de jobs, API HTTP, entrypoint Docker | TypeScript, Prisma/Postgres, discord.js, Fastify |
 | `engagemend-youtube/` | Extração de comentários (YouTube Data API) + classificação de qualidade (Groq) + export pro schema universal de evento | Python |
+| `engagemend-whatsapp/` | Pipeline de coleta e anonimização de exports `.txt` de grupo de WhatsApp → dataset pseudonimizado (contrato `v1.0.0`), sem conteúdo de mensagem, só metadado | Python, pydantic, Streamlit |
 | `interface_da_engagemend/` | Painel — um HTML só, montado por concatenação de partes em `_build/` | HTML/CSS/JS vanilla, sem build tool |
 
 Repositório único — cada pasta acima carrega o histórico de commits do projeto original que a originou (mergeado via `git read-tree --prefix`), mas a partir daqui vivem num só `.git`, sem submodules.
 
 `engagemend-discord/src/ingest/youtube.ts` é o elo entre os dois motores: lê o `data/youtube_events.json` que o pipeline Python exporta e grava no mesmo Postgres/schema Prisma que o coletor Discord usa — depois disso os dois são indistinguíveis pro classificador (`src/classifier/*.ts`), que roda uma vez só sobre tudo.
+
+`engagemend-discord/src/ingest/whatsapp.ts` faz o mesmo elo pro WhatsApp: lê o `output.json` que `engagemend-whatsapp/src/cli.py` produz (mensagem por mensagem, já pseudonimizada por HMAC própria do pipeline) e mapeia pro `MemberEvent` universal — `message_sent`/`message_substantial`/`media_posted`/`mention_received`, mesmos tipos e pesos que Discord e YouTube já usam em `src/classifier/weights.ts`. Diferença de fonte: WhatsApp não tem API, então não existe coletor nem backfill automático — o usuário sobe o `.txt` exportado manualmente via `POST /conexoes/whatsapp` (multipart), o worker roda o pipeline Python num job (`whatsapp_sync`) e apaga o `.txt` do disco assim que termina, dando certo ou errado. Sem metadado de resposta citada na fonte (lacuna documentada no README do pipeline), não existem `reply_given`/`reply_received` para eventos de WhatsApp.
 
 ## Como rodar
 
@@ -66,6 +69,16 @@ python main.py <CHANNEL_ID>
 pytest test_scoring_engine.py -v
 ```
 
+**`engagemend-whatsapp/`** (pipeline Python — coleta e anonimização):
+```bash
+python -m venv venv && source venv/bin/activate
+pip install -e .
+cp .env.example .env   # ANON_HMAC_KEY, MAPPING_ENCRYPTION_KEY (gerar, nunca reaproveitar)
+python -m src.cli export.txt --grupo "Nome do Grupo" --saida ./output --formato json
+pytest
+```
+Rodar isolado só gera o `output.json` pseudonimizado (contrato `v1.0.0`, ver `schema/v1.0.0.json`). Pra entrar no motor de pontuação, o caminho é via HUB (`POST /conexoes/whatsapp`, ver abaixo) — o job `whatsapp_sync` chama esse mesmo CLI e ingere o resultado.
+
 **`interface_da_engagemend/`** (painel):
 ```bash
 sh _build/montar.sh   # concatena as partes — gera as 3 variantes (mock, arquivo, http)
@@ -83,6 +96,9 @@ Cada submodule tem seu `.env.example`. As que a Fase 2 acrescentou em `engagemen
 | `PUBLIC_URL` | Base dos links de confirmação/callback |
 | `YOUTUBE_API_KEY` | Servidor usa pra `channels.list` (nome/thumbnail) antes de enfileirar o job — pipeline Python usa a própria via seu `.env` |
 | `DISCORD_GUILD_ID` | Virou **opcional** — só default de `--guild` nos CLIs; guild real é dado de runtime por evento/job |
+| `WHATSAPP_PIPELINE_DIR` | Onde `spawnWhatsappPipeline` roda `python -m src.cli` — default resolve `../../../engagemend-whatsapp/` a partir do próprio arquivo (funciona local); em Docker é `/app/engagemend-whatsapp` (setado no `docker-compose.yml`) |
+| `WHATSAPP_JOB_DATA_ROOT` | Onde o `.txt` de upload e o `output.json` do job ficam até o worker consumir e apagar — default `./data/whatsapp-jobs` |
+| `ANON_HMAC_KEY` / `MAPPING_ENCRYPTION_KEY` | Do `engagemend-whatsapp/`, não do hub — mas em Docker precisam vir como variável de ambiente do container `app` (o `.env` do pipeline é gitignored e não entra na imagem) |
 
 `MEMBER_ID_SALT` continua irreversível na prática — trocar reescreve o espaço de hashes e órfã o histórico já coletado. Nunca versionar `.env`.
 
@@ -90,8 +106,12 @@ Cada submodule tem seu `.env.example`. As que a Fase 2 acrescentou em `engagemen
 
 1. Corrigir as 3 falhas de teste listadas acima.
 2. Rodar a Task 16 do plano (verificação ponta a ponta manual): magic link real, canal YouTube real, servidor Discord real via OAuth, confirmar isolamento entre dois usuários.
-3. Fora de escopo da Fase 2 (documentado no design, não é esquecimento): edição de régua pela UI (`PUT /configuracoes`), retry automático de job, TLS/domínio, login "com Discord", E2E automatizado, WhatsApp ligado ao fluxo de jobs.
-4. Publicar os três repos num remoto (GitHub ou outro) e atualizar `.gitmodules` — hoje só existem localmente.
+3. `engagemend-whatsapp/` acabou de entrar (`git read-tree --prefix`, mesmo padrão dos outros dois) e o backend do hub já ingere (`src/ingest/whatsapp.ts`, job `whatsapp_sync`, rota `POST /conexoes/whatsapp`) — falta:
+   - `pnpm install` em `engagemend-discord/` (adicionei `@fastify/multipart` ao `package.json`, o lockfile não foi regenerado nesta sessão — sem rede/pnpm no ambiente).
+   - Tela de upload no painel: `ADAPTADOR_HTTP` continua **vago** (LEIA-ME §4) — a rota de WhatsApp já existe no backend, mas nenhuma tela chama ela ainda. Escrever `ADAPTADOR_HTTP` inteiro (as 18 rotas + esta nova) segue sendo o maior buraco do painel.
+   - Rodar contra um export `.txt` real pra validar a detecção de dialeto/locale — o pipeline nunca viu dado de produção, só fixtures sintéticas.
+4. Fora de escopo da Fase 2 (documentado no design, não é esquecimento): edição de régua pela UI (`PUT /configuracoes`), retry automático de job, TLS/domínio, login "com Discord", E2E automatizado.
+5. Publicar os repos num remoto (GitHub ou outro) e atualizar `.gitmodules` — hoje só existem localmente.
 
 ## Documentação de referência
 

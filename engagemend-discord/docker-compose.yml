@@ -23,6 +23,8 @@ services:
       - "3000:3000"
     volumes:
       - youtube_job_data:/app/data/youtube-jobs
+      - whatsapp_job_data:/app/data/whatsapp-jobs
+      - whatsapp_secure_data:/app/data/whatsapp-secure
     environment:
       DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-engagemend}@postgres:5432/${POSTGRES_DB:-engagemend}?sslmode=disable
       DIRECT_URL: postgresql://postgres:${POSTGRES_PASSWORD:-engagemend}@postgres:5432/${POSTGRES_DB:-engagemend}?sslmode=disable
@@ -36,8 +38,18 @@ services:
       RESEND_API_KEY: ${RESEND_API_KEY}
       PUBLIC_URL: ${PUBLIC_URL:-http://localhost:3000}
       FRONTEND_ROOT: /app
+      WHATSAPP_PIPELINE_DIR: /app/engagemend-whatsapp
+      WHATSAPP_JOB_DATA_ROOT: /app/data/whatsapp-jobs
+      # engagemend-whatsapp/.env é gitignored e não entra na imagem — o
+      # `python-dotenv` do pipeline cai pra process.env, então as duas
+      # chaves precisam estar aqui (ver engagemend-whatsapp/.env.example).
+      ANON_HMAC_KEY: ${ANON_HMAC_KEY}
+      MAPPING_ENCRYPTION_KEY: ${MAPPING_ENCRYPTION_KEY}
+      MAPPING_STORE_DIR: /app/data/whatsapp-secure/mapping
       NODE_ENV: production
 
 volumes:
   pgdata:
   youtube_job_data:
+  whatsapp_job_data:
+  whatsapp_secure_data:

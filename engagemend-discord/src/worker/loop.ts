@@ -3,6 +3,7 @@ import { logger } from '../lib/logger.js';
 import { markJobError, markJobRunning, nextQueuedJob } from '../store/jobs.js';
 import { runDiscordBackfill } from './discord-backfill.js';
 import { runYoutubeSync } from './youtube-sync.js';
+import { runWhatsappSync } from './whatsapp-sync.js';
 
 export function startWorkerLoop(client: Client | null, dataRoot: string, tickMs = 5000): { stop(): void } {
   let isProcessing = false;
@@ -24,6 +25,9 @@ export function startWorkerLoop(client: Client | null, dataRoot: string, tickMs 
             await markJobError(job.id, 'integração Discord desabilitada neste processo');
             logger.warn({ jobId: job.id }, 'job Discord recusado: integração desabilitada');
           }
+        } else if (job.kind === 'whatsapp_sync') {
+          const payload = job.payload as { groupName: string; inputFile: string };
+          await runWhatsappSync(job.id, payload.groupName, payload.inputFile, dataRoot);
         } else logger.warn({ jobId: job.id, kind: job.kind }, 'tipo de job desconhecido');
       } finally { isProcessing = false; }
     })();
