@@ -1,0 +1,6 @@
+08/03/2026 09:00 - As mensagens e as ligações são protegidas com criptografia de ponta a ponta. Ninguém fora desta conversa, nem mesmo o WhatsApp, pode lê-las ou ouvi-las.
+08/03/2026 09:01 - João Silva criou o grupo "Comunidade Fixture"
+13/03/2026 10:15 - Maria Costa entrou usando o link de convite deste grupo
+14/03/2026 08:00 - Pedro Santos entrou usando o link de convite deste grupo
+15/03/2026 11:45 - João Silva mudou o assunto do grupo para "Fixture v2"
+16/03/2026 12:00 - Maria Costa saiu

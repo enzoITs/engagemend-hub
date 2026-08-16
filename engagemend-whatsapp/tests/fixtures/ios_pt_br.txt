@@ -1,0 +1,19 @@
+‎[08/03/2026, 09:00:00] As mensagens e as ligações são protegidas com criptografia de ponta a ponta. Ninguém fora desta conversa, nem mesmo o WhatsApp, pode lê-las ou ouvi-las.
+‎[08/03/2026, 09:01:15] João Silva criou o grupo "Comunidade Fixture iOS"
+‎[08/03/2026, 09:02:30] Maria Costa entrou usando o link de convite deste grupo
+[13/03/2026, 10:15:00] João Silva: Bom dia pessoal!
+[13/03/2026, 10:16:05] Maria Costa: Bom dia! Tudo bem?
+[13/03/2026, 10:17:10] +55 14 98888-8888: Cheguei agora
+[13/03/2026, 10:18:20] João: Vendas: Alguém viu a proposta que te mandei ontem?
+Ainda não tive retorno, pode me confirmar?
+[14/03/2026, 08:00:00] Maria Costa: ‎<Mídia oculta>
+[14/03/2026, 08:01:11] João Silva: figurinha omitida
+[14/03/2026, 08:02:22] +55 14 98888-8888: ‎áudio ocultado
+[14/03/2026, 08:03:33] Maria Costa: vídeo omitido
+[14/03/2026, 08:04:44] João Silva: documento omitido
+[14/03/2026, 08:05:55] Maria Costa: <anexado: IMG-20260314-WA0007.jpg>
+[14/03/2026, 08:06:06] João Silva: <marcador-desconhecido-xyz>
+[15/03/2026, 11:30:00] Maria Costa: Esta mensagem foi apagada
+[15/03/2026, 11:31:11] João Silva: Você apagou esta mensagem
+[15/03/2026, 11:45:00] João Silva mudou o assunto do grupo para "Fixture v2"
+[15/03/2026, 12:00:00] Maria Costa saiu
