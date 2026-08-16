@@ -33,6 +33,15 @@ export async function getSessionUser(sessionId: string): Promise<{ id: string; e
   return { id: session.user.id, email: session.user.email };
 }
 
+export async function getOrCreateLocalUser(): Promise<{ id: string; email: string }> {
+  const user = await prisma.user.upsert({
+    where: { email: 'local@engagemend.test' },
+    create: { email: 'local@engagemend.test' },
+    update: {},
+  });
+  return { id: user.id, email: user.email };
+}
+
 export async function deleteSession(sessionId: string): Promise<void> {
   await prisma.session.deleteMany({ where: { id: sessionId } });
 }

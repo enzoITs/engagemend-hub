@@ -42,6 +42,11 @@ const envSchema = z.object({
     z.boolean(),
   ).default(true),
 
+  LOCAL_AUTH_BYPASS: z.preprocess(
+    (value) => (value === undefined || value === '' ? false : value === 'true'),
+    z.boolean(),
+  ).default(false),
+
   DISCORD_GUILD_ID: z.preprocess(
     (value) => (value === '' ? undefined : value),
     z.string().regex(SNOWFLAKE, 'DISCORD_GUILD_ID deve ser um snowflake (17–20 dígitos)').optional(),
