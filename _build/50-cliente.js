@@ -19,7 +19,12 @@
 
 async function http(caminho, opcoes = {}) {
   const resposta = await fetch(caminho, { credentials: "include", ...opcoes });
-  if (resposta.status === 401) throw new ErroDaApi("sessão expirada", "nao_autenticado");
+  if (resposta.status === 401) {
+    if (typeof window !== "undefined" && !caminho.startsWith("/api/auth/")) {
+      window.dispatchEvent(new CustomEvent("engagemend-auth-required"));
+    }
+    throw new ErroDaApi("sessão expirada", "nao_autenticado");
+  }
   if (resposta.status === 404) throw new ErroDaApi("não encontrado", "nao_encontrado");
   if (resposta.status === 409) throw new ErroDaApi("já conectado", "conflito");
   if (!resposta.ok) throw new ErroDaApi(`erro ${resposta.status}`, "erro_rede");
@@ -29,6 +34,14 @@ async function http(caminho, opcoes = {}) {
 function query(params) { const entries = Object.entries(params || {}).filter(([, v]) => v !== undefined && v !== null && v !== ""); return entries.length ? "?" + new URLSearchParams(entries).toString() : ""; }
 const ADAPTADOR_HTTP = {
   nome: "http",
+
+  async solicitarMagicLink(email) {
+    return http("/api/auth/request-link", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+  },
 
   /* GET /comunidades → Comunidade[] */
   async listarComunidades() { return http("/comunidades"); },
@@ -392,6 +405,7 @@ const ADAPTADOR_ARQUIVO = (() => {
 
   return {
     nome: "arquivo",
+    async solicitarMagicLink() { return { ok: true }; },
 
     async listarComunidades() {
       await carregar();

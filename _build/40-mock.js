@@ -651,6 +651,7 @@ const MOCK = (() => {
      HTTP de §5 — é o que faz a troca ser de uma linha. */
   const adaptador = {
     nome: "mock",
+    async solicitarMagicLink() { return { ok: true }; },
 
     async listarComunidades() {
       return responder(() => garantirMundo().comunidades.map((c) => Object.assign({}, c)));

@@ -1010,6 +1010,24 @@ main { flex: 1; overflow-y: auto; }
   font-size: 11px; pointer-events: none;
 }
 
+.auth-overlay {
+  position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center;
+  padding: 24px; background: rgb(3 17 11 / .82); backdrop-filter: blur(8px);
+}
+.auth-card {
+  width: min(420px, 100%); padding: 36px; border-radius: 16px;
+  background: #f5f8f4; color: #14251d; box-shadow: 0 24px 80px rgb(0 0 0 / .35);
+}
+.auth-card .logo-img { display: block; width: 180px; height: auto; margin: 0 auto 24px; }
+.auth-card h1 { margin: 0 0 10px; font-size: 24px; }
+.auth-card > p { margin: 0 0 22px; color: #52665a; line-height: 1.5; }
+.auth-card form { display: grid; gap: 8px; }
+.auth-card label { font-size: 12px; font-weight: 700; }
+.auth-card input { height: 42px; padding: 0 12px; border: 1px solid #b8c7bb; border-radius: 7px; font: inherit; }
+.auth-card .btn-primario { justify-content: center; margin-top: 8px; height: 42px; }
+.auth-sucesso { color: #276847 !important; }
+.auth-erro { color: #a43d32 !important; font-size: 13px; }
+
 /* ── Ajustes finos de responsividade ────────────────────────────────────── */
 @media (max-width: 1023px) {
   .tab-cab, .tab-linha { grid-template-columns: 32px minmax(0, 2fr) 112px 88px 96px; }
@@ -2164,6 +2182,7 @@ const MOCK = (() => {
      HTTP de §5 — é o que faz a troca ser de uma linha. */
   const adaptador = {
     nome: "mock",
+    async solicitarMagicLink() { return { ok: true }; },
 
     async listarComunidades() {
       return responder(() => garantirMundo().comunidades.map((c) => Object.assign({}, c)));
@@ -2844,7 +2863,12 @@ const MOCK = (() => {
 
 async function http(caminho, opcoes = {}) {
   const resposta = await fetch(caminho, { credentials: "include", ...opcoes });
-  if (resposta.status === 401) throw new ErroDaApi("sessão expirada", "nao_autenticado");
+  if (resposta.status === 401) {
+    if (typeof window !== "undefined" && !caminho.startsWith("/api/auth/")) {
+      window.dispatchEvent(new CustomEvent("engagemend-auth-required"));
+    }
+    throw new ErroDaApi("sessão expirada", "nao_autenticado");
+  }
   if (resposta.status === 404) throw new ErroDaApi("não encontrado", "nao_encontrado");
   if (resposta.status === 409) throw new ErroDaApi("já conectado", "conflito");
   if (!resposta.ok) throw new ErroDaApi(`erro ${resposta.status}`, "erro_rede");
@@ -2854,6 +2878,14 @@ async function http(caminho, opcoes = {}) {
 function query(params) { const entries = Object.entries(params || {}).filter(([, v]) => v !== undefined && v !== null && v !== ""); return entries.length ? "?" + new URLSearchParams(entries).toString() : ""; }
 const ADAPTADOR_HTTP = {
   nome: "http",
+
+  async solicitarMagicLink(email) {
+    return http("/api/auth/request-link", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+  },
 
   /* GET /comunidades → Comunidade[] */
   async listarComunidades() { return http("/comunidades"); },
@@ -3217,6 +3249,7 @@ const ADAPTADOR_ARQUIVO = (() => {
 
   return {
     nome: "arquivo",
+    async solicitarMagicLink() { return { ok: true }; },
 
     async listarComunidades() {
       await carregar();
@@ -4462,6 +4495,11 @@ const ui = {
   offline: false,
 };
 
+let authVisivel = false;
+let authEnviado = false;
+let authEmail = "";
+let authErro = "";
+
 const CHAVE_COMUNIDADES = "comunidades";
 const buscarComunidades = () => CLIENTE.listarComunidades();
 const usarComunidades = () => Query.usar(CHAVE_COMUNIDADES, buscarComunidades);
@@ -4490,6 +4528,40 @@ function fecharToast(id) {
   if (i < 0) return;
   ui.toasts.splice(i, 1);
   Render.sujar("toasts");
+}
+
+function renderAuth() {
+  if (!authVisivel) return "";
+  return `<div class="auth-overlay" role="dialog" aria-modal="true" aria-labelledby="auth-titulo">
+    <div class="auth-card">
+      <img class="logo-img" src="${LOGO_ENGAGEMEND}" alt="EngageMend" width="180">
+      <h1 id="auth-titulo">Entrar na EngageMend</h1>
+      ${authEnviado
+        ? `<p class="auth-sucesso">Enviamos um link de acesso para <strong>${esc(authEmail)}</strong>. Abra o email para continuar.</p>`
+        : `<p>Digite seu email para receber um link seguro de acesso.</p>
+           ${authErro ? `<p class="auth-erro">${esc(authErro)}</p>` : ""}
+           <form data-form-auth>
+             <label for="auth-email">Email</label>
+             <input id="auth-email" name="email" type="email" required autocomplete="email" placeholder="voce@empresa.com" value="${esc(authEmail)}">
+             <button class="btn-primario" type="submit">Enviar link de acesso</button>
+           </form>`}
+    </div>
+  </div>`;
+}
+
+function desenharAuth() {
+  const no = document.getElementById("auth-overlay");
+  if (!no) return;
+  no.innerHTML = renderAuth();
+  const campo = no.querySelector("#auth-email");
+  if (campo) campo.focus();
+}
+
+function exigirAutenticacao() {
+  authVisivel = true;
+  authEnviado = false;
+  authErro = "";
+  desenharAuth();
 }
 
 function renderToasts() {
@@ -5068,6 +5140,18 @@ document.addEventListener("click", (e) => {
   if (alvo("[data-fechar-menu]")) { ui.menuAberto = false; aplicarEstadoShell(); Render.sujar("sobreposicoes"); }
 });
 
+document.addEventListener("submit", (e) => {
+  const form = e.target.closest("[data-form-auth]");
+  if (!form) return;
+  e.preventDefault();
+  const campo = form.querySelector("[name=email]");
+  authEmail = campo.value.trim();
+  authErro = "";
+  CLIENTE.solicitarMagicLink(authEmail)
+    .then(() => { authEnviado = true; desenharAuth(); })
+    .catch((erro) => { authErro = explicarErro(erro).texto || "Não foi possível enviar o link."; desenharAuth(); });
+});
+
 document.addEventListener("input", (e) => {
   if (e.target.matches("[data-busca-seletor]")) {
     ui.buscaSeletor = e.target.value;
@@ -5176,6 +5260,9 @@ function montarShell() {
     </div>
     <div data-regiao="sobreposicoes"></div>
     <div class="toasts" data-regiao="toasts"></div>`;
+  const auth = document.createElement("div");
+  auth.id = "auth-overlay";
+  document.body.appendChild(auth);
 
   Render.registrar("sidebar", renderSidebar);
   Render.registrar("topbar", renderTopbar);
@@ -5205,6 +5292,7 @@ function iniciar() {
   window.addEventListener("online", () => { ui.offline = false; Render.sujar("faixa-offline"); COMANDOS.recarregar(); });
   window.addEventListener("offline", () => { ui.offline = true; Render.sujar("faixa-offline"); });
   ui.offline = typeof navigator !== "undefined" && navigator.onLine === false;
+  window.addEventListener("engagemend-auth-required", exigirAutenticacao);
 
   if (typeof iniciarTelas === "function") iniciarTelas();
 

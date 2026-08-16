@@ -29,6 +29,11 @@ const ui = {
   offline: false,
 };
 
+let authVisivel = false;
+let authEnviado = false;
+let authEmail = "";
+let authErro = "";
+
 const CHAVE_COMUNIDADES = "comunidades";
 const buscarComunidades = () => CLIENTE.listarComunidades();
 const usarComunidades = () => Query.usar(CHAVE_COMUNIDADES, buscarComunidades);
@@ -57,6 +62,40 @@ function fecharToast(id) {
   if (i < 0) return;
   ui.toasts.splice(i, 1);
   Render.sujar("toasts");
+}
+
+function renderAuth() {
+  if (!authVisivel) return "";
+  return `<div class="auth-overlay" role="dialog" aria-modal="true" aria-labelledby="auth-titulo">
+    <div class="auth-card">
+      <img class="logo-img" src="${LOGO_ENGAGEMEND}" alt="EngageMend" width="180">
+      <h1 id="auth-titulo">Entrar na EngageMend</h1>
+      ${authEnviado
+        ? `<p class="auth-sucesso">Enviamos um link de acesso para <strong>${esc(authEmail)}</strong>. Abra o email para continuar.</p>`
+        : `<p>Digite seu email para receber um link seguro de acesso.</p>
+           ${authErro ? `<p class="auth-erro">${esc(authErro)}</p>` : ""}
+           <form data-form-auth>
+             <label for="auth-email">Email</label>
+             <input id="auth-email" name="email" type="email" required autocomplete="email" placeholder="voce@empresa.com" value="${esc(authEmail)}">
+             <button class="btn-primario" type="submit">Enviar link de acesso</button>
+           </form>`}
+    </div>
+  </div>`;
+}
+
+function desenharAuth() {
+  const no = document.getElementById("auth-overlay");
+  if (!no) return;
+  no.innerHTML = renderAuth();
+  const campo = no.querySelector("#auth-email");
+  if (campo) campo.focus();
+}
+
+function exigirAutenticacao() {
+  authVisivel = true;
+  authEnviado = false;
+  authErro = "";
+  desenharAuth();
 }
 
 function renderToasts() {
@@ -635,6 +674,18 @@ document.addEventListener("click", (e) => {
   if (alvo("[data-fechar-menu]")) { ui.menuAberto = false; aplicarEstadoShell(); Render.sujar("sobreposicoes"); }
 });
 
+document.addEventListener("submit", (e) => {
+  const form = e.target.closest("[data-form-auth]");
+  if (!form) return;
+  e.preventDefault();
+  const campo = form.querySelector("[name=email]");
+  authEmail = campo.value.trim();
+  authErro = "";
+  CLIENTE.solicitarMagicLink(authEmail)
+    .then(() => { authEnviado = true; desenharAuth(); })
+    .catch((erro) => { authErro = explicarErro(erro).texto || "Não foi possível enviar o link."; desenharAuth(); });
+});
+
 document.addEventListener("input", (e) => {
   if (e.target.matches("[data-busca-seletor]")) {
     ui.buscaSeletor = e.target.value;
@@ -743,6 +794,9 @@ function montarShell() {
     </div>
     <div data-regiao="sobreposicoes"></div>
     <div class="toasts" data-regiao="toasts"></div>`;
+  const auth = document.createElement("div");
+  auth.id = "auth-overlay";
+  document.body.appendChild(auth);
 
   Render.registrar("sidebar", renderSidebar);
   Render.registrar("topbar", renderTopbar);
@@ -772,6 +826,7 @@ function iniciar() {
   window.addEventListener("online", () => { ui.offline = false; Render.sujar("faixa-offline"); COMANDOS.recarregar(); });
   window.addEventListener("offline", () => { ui.offline = true; Render.sujar("faixa-offline"); });
   ui.offline = typeof navigator !== "undefined" && navigator.onLine === false;
+  window.addEventListener("engagemend-auth-required", exigirAutenticacao);
 
   if (typeof iniciarTelas === "function") iniciarTelas();
 

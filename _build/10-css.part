@@ -611,6 +611,24 @@
   font-size: 11px; pointer-events: none;
 }
 
+.auth-overlay {
+  position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center;
+  padding: 24px; background: rgb(3 17 11 / .82); backdrop-filter: blur(8px);
+}
+.auth-card {
+  width: min(420px, 100%); padding: 36px; border-radius: 16px;
+  background: #f5f8f4; color: #14251d; box-shadow: 0 24px 80px rgb(0 0 0 / .35);
+}
+.auth-card .logo-img { display: block; width: 180px; height: auto; margin: 0 auto 24px; }
+.auth-card h1 { margin: 0 0 10px; font-size: 24px; }
+.auth-card > p { margin: 0 0 22px; color: #52665a; line-height: 1.5; }
+.auth-card form { display: grid; gap: 8px; }
+.auth-card label { font-size: 12px; font-weight: 700; }
+.auth-card input { height: 42px; padding: 0 12px; border: 1px solid #b8c7bb; border-radius: 7px; font: inherit; }
+.auth-card .btn-primario { justify-content: center; margin-top: 8px; height: 42px; }
+.auth-sucesso { color: #276847 !important; }
+.auth-erro { color: #a43d32 !important; font-size: 13px; }
+
 /* ── Ajustes finos de responsividade ────────────────────────────────────── */
 @media (max-width: 1023px) {
   .tab-cab, .tab-linha { grid-template-columns: 32px minmax(0, 2fr) 112px 88px 96px; }
