@@ -51,9 +51,14 @@ export async function resolveYoutubeCommunity(
   channelId: string,
   channelName: string,
 ): Promise<string> {
+  const owner = await prisma.user.upsert({
+    where: { email: 'standalone@engagemend.local' },
+    create: { email: 'standalone@engagemend.local' },
+    update: {},
+  });
   const community = await prisma.community.upsert({
     where: { platform_externalId: { platform: 'youtube', externalId: channelId } },
-    create: { platform: 'youtube', externalId: channelId, name: channelName },
+    create: { platform: 'youtube', externalId: channelId, name: channelName, ownerId: owner.id },
     update: { name: channelName, syncedAt: new Date() },
   });
   return community.id;

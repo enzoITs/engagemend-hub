@@ -8,7 +8,7 @@ import pino from 'pino';
 export const logger = pino({
   level: process.env['LOG_LEVEL'] ?? 'info',
   redact: {
-    paths: ['token', 'DISCORD_TOKEN', 'DATABASE_URL', 'MEMBER_ID_SALT', '*.token'],
+    paths: ['token', 'DISCORD_TOKEN', 'DATABASE_URL', 'MEMBER_ID_SALT', 'RESEND_API_KEY', '*.token'],
     censor: '[redacted]',
   },
 });

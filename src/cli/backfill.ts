@@ -86,7 +86,7 @@ try {
     void client.login(env.DISCORD_TOKEN).catch(reject);
   });
 
-  const guild = await client.guilds.fetch(env.DISCORD_GUILD_ID);
+  const guild = await client.guilds.fetch(env.DISCORD_GUILD_ID!);
   // `joinedAtOf` (newcomer_welcomed) lê deste cache.
   await guild.members.fetch();
 

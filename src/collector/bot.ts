@@ -172,7 +172,7 @@ export class Collector {
 
   async #persist(events: readonly MemberEvent[], context: string): Promise<number> {
     if (events.length === 0) return 0;
-    const { inserted, skipped } = await insertEvents(events, env.DISCORD_GUILD_ID);
+    const { inserted, skipped } = await insertEvents(events, env.DISCORD_GUILD_ID!);
     logger.info({ context, inserted, skipped }, 'eventos gravados');
     return inserted;
   }
@@ -185,7 +185,7 @@ export class Collector {
   async #onReady(client: Client<true>): Promise<void> {
     logger.info({ tag: client.user.tag, id: client.user.id }, 'conectado ao gateway');
 
-    const guild = await client.guilds.fetch(env.DISCORD_GUILD_ID);
+    const guild = await client.guilds.fetch(env.DISCORD_GUILD_ID!);
     this.#guild = guild;
 
     // Popula o cache de membros — `joinedAtOf` depende dele para newcomer_welcomed.

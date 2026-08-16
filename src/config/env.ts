@@ -36,9 +36,18 @@ const envSchema = z.object({
 
   DISCORD_TOKEN: z.string().min(1, 'DISCORD_TOKEN é obrigatório'),
 
-  DISCORD_GUILD_ID: z
+  DISCORD_GUILD_ID: z.preprocess(
+    (value) => (value === '' ? undefined : value),
+    z.string().regex(SNOWFLAKE, 'DISCORD_GUILD_ID deve ser um snowflake (17–20 dígitos)').optional(),
+  ),
+
+  DISCORD_CLIENT_ID: z
     .string()
-    .regex(SNOWFLAKE, 'DISCORD_GUILD_ID deve ser um snowflake (17–20 dígitos)'),
+    .regex(SNOWFLAKE, 'DISCORD_CLIENT_ID deve ser um snowflake (17–20 dígitos)'),
+
+  RESEND_API_KEY: z.string().min(1, 'RESEND_API_KEY é obrigatória'),
+
+  PUBLIC_URL: z.string().url('PUBLIC_URL precisa ser uma URL válida'),
 
   /**
    * Sal do HMAC que pseudonimiza o discord_id (§3). Trocar este valor

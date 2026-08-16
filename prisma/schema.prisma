@@ -25,6 +25,9 @@ model Community {
   syncState  String   @default("conectada")
   syncedAt   DateTime @default(now())
   createdAt  DateTime @default(now())
+  ownerId    String
+  owner      User     @relation(fields: [ownerId], references: [id])
+  disabledAt DateTime?
 
   events MemberEvent[]
 
@@ -99,12 +102,67 @@ model MemberProfile {
 model LevelTransition {
   id         BigInt   @id @default(autoincrement())
   memberHash String
+  communityId String?
   fromLevel  Int?
   toLevel    Int
   scoreAt    Float
   reason     String // "promotion" | "demotion" | "initial" | "recompute"
   occurredAt DateTime @default(now())
+  readAt     DateTime?
 
   @@index([memberHash, occurredAt])
+  @@index([communityId, readAt])
   @@map("level_transitions")
+}
+
+model User {
+  id          String       @id @default(cuid())
+  email       String       @unique
+  createdAt   DateTime     @default(now())
+  communities Community[]
+  jobs        Job[]
+  sessions    Session[]
+
+  @@map("users")
+}
+
+model MagicLinkToken {
+  id        String    @id @default(cuid())
+  email     String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([email])
+  @@map("magic_link_tokens")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model Job {
+  id         String    @id @default(cuid())
+  ownerId    String
+  owner      User      @relation(fields: [ownerId], references: [id])
+  kind       String
+  status     String    @default("queued")
+  payload    Json
+  log        String?
+  error      String?
+  createdAt  DateTime  @default(now())
+  startedAt  DateTime?
+  finishedAt DateTime?
+
+  @@index([ownerId, createdAt])
+  @@index([status])
+  @@map("jobs")
 }

@@ -293,7 +293,7 @@ async function checkPermissoes(): Promise<Check> {
   const detalhe: string[] = [];
   let status: Status = 'ok';
 
-  const guildId = env.DISCORD_GUILD_ID;
+  const guildId = env.DISCORD_GUILD_ID!;
   const me = await discord<{ id: string }>('/users/@me');
   const guild = await discord<{ owner_id: string }>(`/guilds/${guildId}`);
   const member = await discord<{ roles: string[] }>(`/guilds/${guildId}/members/${me.id}`);

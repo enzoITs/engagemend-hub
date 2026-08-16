@@ -324,7 +324,7 @@ async function backfillChannel(
     }
 
     await rememberIdentities(identities);
-    const written = await insertEvents(events, env.DISCORD_GUILD_ID);
+    const written = await insertEvents(events, env.DISCORD_GUILD_ID!);
 
     result.messages += page.size;
     result.events += events.length;
@@ -435,7 +435,7 @@ export async function runBackfill(
         );
         if (events.length > 0) {
           await rememberIdentities([identityOf(owner)]);
-          await insertEvents(events, env.DISCORD_GUILD_ID);
+          await insertEvents(events, env.DISCORD_GUILD_ID!);
         }
       }
 

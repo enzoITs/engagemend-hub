@@ -34,7 +34,7 @@ async function listChannels(): Promise<void> {
   await waitForReady();
 
   // O handler de ready roda em paralelo; espera o guild aparecer.
-  const guild = collector.guild ?? (await collector.client.guilds.fetch(env.DISCORD_GUILD_ID));
+  const guild = collector.guild ?? (await collector.client.guilds.fetch(env.DISCORD_GUILD_ID!));
   const rows = await listGuildChannels(guild);
 
   const width = {
@@ -57,8 +57,8 @@ async function listChannels(): Promise<void> {
 async function collect(): Promise<void> {
   await waitForReady();
 
-  const total = await countEvents(env.DISCORD_GUILD_ID);
-  const latest = await latestEventAt(env.DISCORD_GUILD_ID);
+  const total = await countEvents(env.DISCORD_GUILD_ID!);
+  const latest = await latestEventAt(env.DISCORD_GUILD_ID!);
   logger.info(
     { eventos: total, ultimo: latest?.toISOString() ?? null },
     'coletor no ar — Ctrl+C para encerrar',

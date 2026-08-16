@@ -192,7 +192,7 @@ try {
     );
     const resolverComunidade = (event: (typeof events)[number]) =>
       comunidadePorChave.get(`${event.source}:${event.guildId}`);
-    const idComunidadeDefault = `discord:${env.DISCORD_GUILD_ID}`;
+    const idComunidadeDefault = `discord:${env.DISCORD_GUILD_ID!}`;
 
     const comunidadeIdPorMembro = new Map<string, string>();
     const eventosPorComunidade = new Map<string, { ultimo: Date; total: number }>();
@@ -222,7 +222,7 @@ try {
             {
               id: idComunidadeDefault,
               platform: 'discord',
-              externalId: env.DISCORD_GUILD_ID,
+              externalId: env.DISCORD_GUILD_ID!,
               name: 'Discord',
             },
           ];
