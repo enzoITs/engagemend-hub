@@ -136,6 +136,9 @@ export async function classify(options: ClassifyOptions = {}): Promise<ClassifyS
   );
   const references = axisReferences(aggregates);
   const series = naturalLevelSeries(capped, now);
+  const communityByHash = new Map<string, string>();
+  const communityRows = await prisma.memberEvent.findMany({ where: { memberHash: { in: aggregates.map((a) => a.memberHash) }, communityId: { not: null } }, distinct: ['memberHash'], select: { memberHash: true, communityId: true } });
+  for (const row of communityRows) if (row.communityId) communityByHash.set(row.memberHash, row.communityId);
 
   const profiles = await prisma.memberProfile.findMany({
     select: { memberHash: true, currentLevel: true, levelSince: true },
@@ -215,6 +218,7 @@ export async function classify(options: ClassifyOptions = {}): Promise<ClassifyS
       await prisma.levelTransition.create({
         data: {
           memberHash: aggregate.memberHash,
+          communityId: communityByHash.get(aggregate.memberHash) ?? null,
           fromLevel: current,
           toLevel: decision.level,
           scoreAt: aggregate.score30d,
