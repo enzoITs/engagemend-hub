@@ -1,0 +1,41 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-engagemend}
+      POSTGRES_DB: ${POSTGRES_DB:-engagemend}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      context: ..
+      dockerfile: engagemend-discord/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    volumes:
+      - youtube_job_data:/app/data/youtube-jobs
+    environment:
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-engagemend}@postgres:5432/${POSTGRES_DB:-engagemend}?sslmode=disable
+      DIRECT_URL: postgresql://postgres:${POSTGRES_PASSWORD:-engagemend}@postgres:5432/${POSTGRES_DB:-engagemend}?sslmode=disable
+      DISCORD_TOKEN: ${DISCORD_TOKEN}
+      DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID}
+      MEMBER_ID_SALT: ${MEMBER_ID_SALT}
+      YOUTUBE_API_KEY: ${YOUTUBE_API_KEY}
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      GROQ_API_KEY_2: ${GROQ_API_KEY_2:-}
+      RESEND_API_KEY: ${RESEND_API_KEY}
+      PUBLIC_URL: ${PUBLIC_URL:-http://localhost:3000}
+      NODE_ENV: production
+
+volumes:
+  pgdata:
+  youtube_job_data:
