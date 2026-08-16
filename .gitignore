@@ -1,0 +1,7 @@
+.env
+node_modules/
+.backfill-state.json
+
+# Exports do `pnpm report`. Com --reveal contêm username — nunca versionar.
+engagemend-*.csv
+painel.json
