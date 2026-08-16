@@ -47,6 +47,8 @@ const envSchema = z.object({
 
   RESEND_API_KEY: z.string().min(1, 'RESEND_API_KEY é obrigatória'),
 
+  YOUTUBE_API_KEY: z.string().min(1, 'YOUTUBE_API_KEY é obrigatória'),
+
   PUBLIC_URL: z.string().url('PUBLIC_URL precisa ser uma URL válida'),
 
   /**
