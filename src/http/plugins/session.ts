@@ -5,6 +5,7 @@ export const SESSION_COOKIE = 'engagemend_session';
 declare module 'fastify' { interface FastifyRequest { user: { id: string; email: string }; } }
 const sessionHook: FastifyPluginAsync = async (app) => {
   app.addHook('onRequest', async (request, reply) => {
+    if (request.url.startsWith('/api/auth/')) return;
     const sessionId = request.cookies[SESSION_COOKIE];
     if (!sessionId) return reply.code(401).send({ error: 'não autenticado' });
     const user = await getSessionUser(sessionId);
