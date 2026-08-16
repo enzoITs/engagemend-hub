@@ -17,6 +17,7 @@ import {
 import { resolveChannelCategory } from '../config/channels.js';
 import { env } from '../config/env.js';
 import { logger } from '../lib/logger.js';
+import { prisma } from '../lib/prisma.js';
 import { insertEvents } from '../store/events.js';
 import { hashMember, rememberIdentities, rememberIdentity } from '../store/identity.js';
 import type { MemberEvent } from '../types/scoring.js';
@@ -69,6 +70,7 @@ const BURST_PRUNE_HORIZON_MS = 10 * 60 * 1000;
 interface OpenVoiceSession {
   channelId: string;
   joinedAt: Date;
+  guildId: string;
 }
 
 export interface ChannelRow {
@@ -80,6 +82,13 @@ export interface ChannelRow {
 
 export function createClient(): Client {
   return new Client({ intents: INTENTS, partials: PARTIALS });
+}
+
+export async function resolveCommunityForGuild(guildId: string): Promise<{ id: string } | null> {
+  return prisma.community.findFirst({
+    where: { platform: 'discord', externalId: guildId, disabledAt: null },
+    select: { id: true },
+  });
 }
 
 export function toUserRef(user: { id: string; bot: boolean }): RawUserRef {
@@ -146,7 +155,6 @@ export class Collector {
   readonly #invites = new InviteTracker();
   readonly #voice = new Map<string, OpenVoiceSession>();
   #pruneTimer: NodeJS.Timeout | null = null;
-  #guild: Guild | null = null;
 
   constructor(client: Client = createClient()) {
     this.#client = client;
@@ -156,23 +164,18 @@ export class Collector {
     return this.#client;
   }
 
-  get guild(): Guild | null {
-    return this.#guild;
-  }
-
-  /** Contexto de normalização. `joinedAtOf` lê o cache de membros do gateway. */
-  #context(overrides: Partial<NormalizeContext> = {}): NormalizeContext {
+  #context(guild: Guild, overrides: Partial<NormalizeContext> = {}): NormalizeContext {
     return {
       hashMember: (discordId) => hashMember('discord', discordId),
       categoryOf: (channelId) => resolveChannelCategory(channelId),
-      joinedAtOf: (discordId) => this.#guild?.members.cache.get(discordId)?.joinedAt ?? null,
+      joinedAtOf: (discordId) => guild.members.cache.get(discordId)?.joinedAt ?? null,
       ...overrides,
     };
   }
 
-  async #persist(events: readonly MemberEvent[], context: string): Promise<number> {
+  async #persist(events: readonly MemberEvent[], guildId: string, communityId: string, context: string): Promise<number> {
     if (events.length === 0) return 0;
-    const { inserted, skipped } = await insertEvents(events, env.DISCORD_GUILD_ID!);
+    const { inserted, skipped } = await insertEvents(events, guildId, communityId);
     logger.info({ context, inserted, skipped }, 'eventos gravados');
     return inserted;
   }
@@ -185,18 +188,15 @@ export class Collector {
   async #onReady(client: Client<true>): Promise<void> {
     logger.info({ tag: client.user.tag, id: client.user.id }, 'conectado ao gateway');
 
-    const guild = await client.guilds.fetch(env.DISCORD_GUILD_ID!);
-    this.#guild = guild;
-
-    // Popula o cache de membros — `joinedAtOf` depende dele para newcomer_welcomed.
-    try {
-      const members = await guild.members.fetch();
-      logger.info({ guild: guild.name, members: members.size }, 'guild carregado');
-    } catch (error) {
-      logger.warn({ err: error }, 'não consegui listar membros — GUILD_MEMBERS está habilitada?');
+    for (const [, guild] of client.guilds.cache) {
+      try {
+        const members = await guild.members.fetch();
+        logger.info({ guild: guild.name, members: members.size }, 'guild carregado');
+        await this.#invites.prime(guild);
+      } catch (error) {
+        logger.warn({ err: error, guild: guild.name }, 'não consegui preparar guild');
+      }
     }
-
-    await this.#invites.prime(guild);
 
     this.#pruneTimer = setInterval(() => {
       this.#burst.prune(new Date(Date.now() - BURST_PRUNE_HORIZON_MS));
@@ -258,13 +258,14 @@ export class Collector {
 
   async #onMessage(message: Message): Promise<void> {
     if (!message.inGuild()) return;
-    if (message.guildId !== env.DISCORD_GUILD_ID) return;
+    const community = await resolveCommunityForGuild(message.guildId);
+    if (!community) return;
     if (message.author.bot) return;
     if (message.system) return;
 
     const raw = await toRawMessage(message);
     const lastCountedAt = this.#burst.lastCountedAt(message.author.id, message.channelId);
-    const events = normalizeMessage(raw, this.#context({ lastCountedAt }));
+    const events = normalizeMessage(raw, this.#context(message.guild, { lastCountedAt }));
     if (events.length === 0) return;
 
     await rememberIdentities([
@@ -291,7 +292,7 @@ export class Collector {
         : []),
     ]);
 
-    await this.#persist(events, 'messageCreate');
+    await this.#persist(events, message.guildId, community.id, 'messageCreate');
 
     // A janela de 60s só avança quando a mensagem realmente contou como volume.
     if (events.some((event) => event.eventType === 'message_sent')) {
@@ -311,7 +312,8 @@ export class Collector {
       ? await reaction.message.fetch()
       : reaction.message;
     if (!message.inGuild()) return;
-    if (message.guildId !== env.DISCORD_GUILD_ID) return;
+    const community = await resolveCommunityForGuild(message.guildId);
+    if (!community) return;
 
     const events = normalizeReaction(
       {
@@ -323,7 +325,7 @@ export class Collector {
         occurredAt: new Date(),
         thread: threadRefOf(message),
       },
-      this.#context(),
+      this.#context(message.guild),
     );
     if (events.length === 0) return;
 
@@ -337,11 +339,13 @@ export class Collector {
       },
     ]);
 
-    await this.#persist(events, 'messageReactionAdd');
+    await this.#persist(events, message.guildId, community.id, 'messageReactionAdd');
   }
 
   async #onThreadCreate(thread: ThreadChannel): Promise<void> {
-    if (thread.guildId !== env.DISCORD_GUILD_ID) return;
+    if (!thread.guildId || !thread.guild) return;
+    const community = await resolveCommunityForGuild(thread.guildId);
+    if (!community) return;
     const ownerId = thread.ownerId;
     if (!ownerId) return;
 
@@ -355,7 +359,7 @@ export class Collector {
         owner: toUserRef(owner),
         occurredAt: thread.createdAt ?? new Date(),
       },
-      this.#context(),
+      this.#context(thread.guild),
     );
 
     await rememberIdentity({
@@ -364,7 +368,7 @@ export class Collector {
       displayName: owner.displayName,
       isBot: false,
     });
-    await this.#persist(events, 'threadCreate');
+    await this.#persist(events, thread.guildId, community.id, 'threadCreate');
   }
 
   /**
@@ -372,7 +376,8 @@ export class Collector {
    * `voiceStateUpdate`. Cada minuto de bot fora do ar é minuto perdido (§9).
    */
   async #onVoiceState(oldState: VoiceState, newState: VoiceState): Promise<void> {
-    if (newState.guild.id !== env.DISCORD_GUILD_ID) return;
+    const community = await resolveCommunityForGuild(newState.guild.id);
+    if (!community) return;
     const memberId = newState.id;
     const user = newState.member?.user ?? oldState.member?.user;
     if (user?.bot) return;
@@ -380,10 +385,10 @@ export class Collector {
     const left = oldState.channelId && oldState.channelId !== newState.channelId;
     const joined = newState.channelId && newState.channelId !== oldState.channelId;
 
-    if (left) await this.#closeVoiceSession(memberId, user ?? null, new Date());
+    if (left) await this.#closeVoiceSession(memberId, user ?? null, new Date(), newState.guild.id, community.id);
 
     if (joined && newState.channelId) {
-      this.#voice.set(memberId, { channelId: newState.channelId, joinedAt: new Date() });
+      this.#voice.set(memberId, { channelId: newState.channelId, joinedAt: new Date(), guildId: newState.guild.id });
     }
   }
 
@@ -391,6 +396,8 @@ export class Collector {
     memberId: string,
     user: User | null,
     leftAt: Date,
+    guildId?: string,
+    communityId?: string,
   ): Promise<void> {
     const open = this.#voice.get(memberId);
     if (!open) return;
@@ -403,7 +410,7 @@ export class Collector {
         joinedAt: open.joinedAt,
         leftAt,
       },
-      this.#context(),
+      this.#context(this.#client.guilds.cache.get(open.guildId) ?? this.#client.guilds.cache.first()!),
     );
     if (events.length === 0) return;
 
@@ -415,10 +422,13 @@ export class Collector {
         isBot: user.bot,
       });
     }
-    await this.#persist(events, 'voiceSession');
+    const resolvedCommunity = communityId ? { id: communityId } : await resolveCommunityForGuild(guildId ?? open.guildId);
+    if (resolvedCommunity) await this.#persist(events, guildId ?? open.guildId, resolvedCommunity.id, 'voiceSession');
   }
 
   async #onMemberAdd(guild: Guild, newMember: RawUserRef): Promise<void> {
+    const community = await resolveCommunityForGuild(guild.id);
+    if (!community) return;
     const used = await this.#invites.resolveUsedInvite(guild);
     if (!used?.inviterId) return;
 
@@ -430,7 +440,7 @@ export class Collector {
         newMember,
         occurredAt: new Date(),
       },
-      this.#context(),
+      this.#context(guild),
     );
 
     await rememberIdentity({
@@ -439,7 +449,7 @@ export class Collector {
       displayName: inviter.displayName,
       isBot: inviter.bot,
     });
-    await this.#persist(events, 'guildMemberAdd');
+    await this.#persist(events, guild.id, community.id, 'guildMemberAdd');
   }
 
   /** Fecha o que estiver aberto e desconecta. */
@@ -449,7 +459,7 @@ export class Collector {
     const now = new Date();
     const open = [...this.#voice.keys()];
     for (const memberId of open) {
-      const user = this.#guild?.members.cache.get(memberId)?.user ?? null;
+      const user = this.#client.users.cache.get(memberId) ?? null;
       await this.#guard('shutdownVoice', () => this.#closeVoiceSession(memberId, user, now));
     }
     if (open.length > 0) logger.info({ sessions: open.length }, 'sessões de voz fechadas');

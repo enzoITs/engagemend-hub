@@ -3,7 +3,7 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { prisma, disconnectPrisma } from '../src/lib/prisma.js';
 import { enqueueJob, nextQueuedJob, markJobRunning, markJobDone, markJobError, appendJobLog, getJob, requeueStuckJobs } from '../src/store/jobs.js';
 async function makeUser() { return (await prisma.user.create({ data: { email: `${randomUUID()}@teste.local` } })).id; }
-beforeEach(async () => { await prisma.job.deleteMany(); await prisma.user.deleteMany(); });
+beforeEach(async () => { await prisma.memberEvent.deleteMany(); await prisma.community.deleteMany(); await prisma.job.deleteMany(); await prisma.user.deleteMany(); });
 afterAll(async () => { await disconnectPrisma(); });
 describe('fila de jobs', () => {
   it('pega o mais antigo primeiro', async () => { const owner = await makeUser(); const first = await enqueueJob(owner, 'youtube_sync', { channelId: 'UC1' }); await new Promise((r) => setTimeout(r, 5)); await enqueueJob(owner, 'youtube_sync', { channelId: 'UC2' }); expect((await nextQueuedJob())?.id).toBe(first.id); });

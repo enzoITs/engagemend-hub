@@ -37,6 +37,7 @@ function repeatable(value: string, previous: string[]): string[] {
 const program = new Command()
   .name('backfill')
   .description('Varredura histórica paginada de um ou mais canais')
+  .option('--guild <id>', 'guild da varredura (default: DISCORD_GUILD_ID)')
   .option('--channel <id>', 'canal a varrer (pode repetir)', repeatable, [])
   .option('--all', 'varre todos os canais de texto não-ignored', false)
   .option('--limit <n>', 'teto de mensagens por canal', positiveInt, 500)
@@ -54,6 +55,7 @@ const raw = program.opts<{
   reactions: boolean;
   threads: boolean;
   reset: boolean;
+  guild?: string;
 }>();
 
 if (raw.channel.length === 0 && !raw.all) {
@@ -86,7 +88,9 @@ try {
     void client.login(env.DISCORD_TOKEN).catch(reject);
   });
 
-  const guild = await client.guilds.fetch(env.DISCORD_GUILD_ID!);
+  const guildId = raw.guild ?? env.DISCORD_GUILD_ID ?? '';
+  if (!guildId) program.error('informe --guild ou defina DISCORD_GUILD_ID no ambiente');
+  const guild = await client.guilds.fetch(guildId);
   // `joinedAtOf` (newcomer_welcomed) lê deste cache.
   await guild.members.fetch();
 

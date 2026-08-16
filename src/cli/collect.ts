@@ -16,9 +16,10 @@ const program = new Command()
   .name('collect')
   .description('Coletor de engajamento do Discord em tempo real')
   .option('--list-channels', 'lista os canais do guild (id, nome, tipo) e encerra')
+  .option('--guild <id>', 'guild pra listar canais (default: DISCORD_GUILD_ID)')
   .parse();
 
-const options = program.opts<{ listChannels?: boolean }>();
+const options = program.opts<{ listChannels?: boolean; guild?: string }>();
 
 const collector = new Collector();
 
@@ -34,7 +35,9 @@ async function listChannels(): Promise<void> {
   await waitForReady();
 
   // O handler de ready roda em paralelo; espera o guild aparecer.
-  const guild = collector.guild ?? (await collector.client.guilds.fetch(env.DISCORD_GUILD_ID!));
+  const guildId = options.guild ?? env.DISCORD_GUILD_ID ?? '';
+  if (!guildId) program.error('informe --guild ou defina DISCORD_GUILD_ID no ambiente');
+  const guild = await collector.client.guilds.fetch(guildId);
   const rows = await listGuildChannels(guild);
 
   const width = {
@@ -57,8 +60,10 @@ async function listChannels(): Promise<void> {
 async function collect(): Promise<void> {
   await waitForReady();
 
-  const total = await countEvents(env.DISCORD_GUILD_ID!);
-  const latest = await latestEventAt(env.DISCORD_GUILD_ID!);
+  const guildId = options.guild ?? env.DISCORD_GUILD_ID ?? '';
+  if (!guildId) program.error('informe --guild ou defina DISCORD_GUILD_ID no ambiente');
+  const total = await countEvents(guildId);
+  const latest = await latestEventAt(guildId);
   logger.info(
     { eventos: total, ultimo: latest?.toISOString() ?? null },
     'coletor no ar — Ctrl+C para encerrar',

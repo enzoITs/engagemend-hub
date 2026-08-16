@@ -7,6 +7,8 @@ import { createMagicLinkToken, consumeMagicLinkToken, createSession, getSessionU
 const email = () => `${randomUUID()}@teste.local`;
 
 beforeEach(async () => {
+  await prisma.memberEvent.deleteMany();
+  await prisma.community.deleteMany();
   await prisma.job.deleteMany();
   await prisma.session.deleteMany();
   await prisma.magicLinkToken.deleteMany();
