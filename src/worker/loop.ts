@@ -1,10 +1,10 @@
 import type { Client } from 'discord.js';
 import { logger } from '../lib/logger.js';
-import { markJobRunning, nextQueuedJob } from '../store/jobs.js';
+import { markJobError, markJobRunning, nextQueuedJob } from '../store/jobs.js';
 import { runDiscordBackfill } from './discord-backfill.js';
 import { runYoutubeSync } from './youtube-sync.js';
 
-export function startWorkerLoop(client: Client, dataRoot: string, tickMs = 5000): { stop(): void } {
+export function startWorkerLoop(client: Client | null, dataRoot: string, tickMs = 5000): { stop(): void } {
   let isProcessing = false;
   const timer = setInterval(() => {
     if (isProcessing) return;
@@ -19,7 +19,11 @@ export function startWorkerLoop(client: Client, dataRoot: string, tickMs = 5000)
           await runYoutubeSync(job.id, payload.channelId, payload.channelName, dataRoot);
         } else if (job.kind === 'discord_backfill') {
           const payload = job.payload as { guildId: string };
-          await runDiscordBackfill(job.id, payload.guildId, client);
+          if (client) await runDiscordBackfill(job.id, payload.guildId, client);
+          else {
+            await markJobError(job.id, 'integração Discord desabilitada neste processo');
+            logger.warn({ jobId: job.id }, 'job Discord recusado: integração desabilitada');
+          }
         } else logger.warn({ jobId: job.id, kind: job.kind }, 'tipo de job desconhecido');
       } finally { isProcessing = false; }
     })();

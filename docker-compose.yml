@@ -27,6 +27,7 @@ services:
       DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-engagemend}@postgres:5432/${POSTGRES_DB:-engagemend}?sslmode=disable
       DIRECT_URL: postgresql://postgres:${POSTGRES_PASSWORD:-engagemend}@postgres:5432/${POSTGRES_DB:-engagemend}?sslmode=disable
       DISCORD_TOKEN: ${DISCORD_TOKEN}
+      DISCORD_ENABLED: ${DISCORD_ENABLED:-true}
       DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID}
       MEMBER_ID_SALT: ${MEMBER_ID_SALT}
       YOUTUBE_API_KEY: ${YOUTUBE_API_KEY}
@@ -34,6 +35,7 @@ services:
       GROQ_API_KEY_2: ${GROQ_API_KEY_2:-}
       RESEND_API_KEY: ${RESEND_API_KEY}
       PUBLIC_URL: ${PUBLIC_URL:-http://localhost:3000}
+      FRONTEND_ROOT: /app
       NODE_ENV: production
 
 volumes:

@@ -36,6 +36,12 @@ const envSchema = z.object({
 
   DISCORD_TOKEN: z.string().min(1, 'DISCORD_TOKEN é obrigatório'),
 
+  /** Permite subir o painel/API localmente sem autenticar o bot Discord. */
+  DISCORD_ENABLED: z.preprocess(
+    (value) => (value === undefined || value === '' ? true : value === 'true'),
+    z.boolean(),
+  ).default(true),
+
   DISCORD_GUILD_ID: z.preprocess(
     (value) => (value === '' ? undefined : value),
     z.string().regex(SNOWFLAKE, 'DISCORD_GUILD_ID deve ser um snowflake (17–20 dígitos)').optional(),
