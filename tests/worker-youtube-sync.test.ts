@@ -9,7 +9,7 @@ vi.mock('../src/worker/spawn-python.js', () => ({ spawnYoutubePipeline: vi.fn() 
 const { spawnYoutubePipeline } = await import('../src/worker/spawn-python.js');
 const { runYoutubeSync } = await import('../src/worker/youtube-sync.js');
 let dataRoot: string;
-beforeEach(async () => { await prisma.memberEvent.deleteMany(); await prisma.community.deleteMany(); await prisma.job.deleteMany(); await prisma.memberProfile.deleteMany(); await prisma.levelTransition.deleteMany(); await prisma.user.deleteMany(); dataRoot = await mkdtemp(join(tmpdir(), 'engagemend-yt-')); vi.mocked(spawnYoutubePipeline).mockReset(); });
+beforeEach(async () => { await prisma.memberEvent.deleteMany(); await prisma.community.deleteMany(); await prisma.job.deleteMany(); await prisma.memberProfile.deleteMany(); await prisma.levelTransition.deleteMany(); await prisma.session.deleteMany(); await prisma.user.deleteMany(); dataRoot = await mkdtemp(join(tmpdir(), 'engagemend-yt-')); vi.mocked(spawnYoutubePipeline).mockReset(); });
 afterEach(async () => { await rm(dataRoot, { recursive: true, force: true }); });
 afterAll(async () => { await disconnectPrisma(); });
 describe('runYoutubeSync', () => {

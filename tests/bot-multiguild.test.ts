@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { prisma, disconnectPrisma } from '../src/lib/prisma.js';
 import { resolveCommunityForGuild } from '../src/collector/bot.js';
-beforeEach(async () => { await prisma.memberEvent.deleteMany(); await prisma.community.deleteMany(); await prisma.job.deleteMany(); await prisma.user.deleteMany(); });
+beforeEach(async () => { await prisma.memberEvent.deleteMany(); await prisma.community.deleteMany(); await prisma.job.deleteMany(); await prisma.session.deleteMany(); await prisma.user.deleteMany(); });
 afterAll(async () => { await disconnectPrisma(); });
 describe('resolveCommunityForGuild', () => {
   it('resolve comunidade ativa', async () => { const user = await prisma.user.create({ data: { email: `${randomUUID()}@teste.local` } }); const c = await prisma.community.create({ data: { platform: 'discord', externalId: '999888777666555444', name: 'Guild', ownerId: user.id } }); expect((await resolveCommunityForGuild('999888777666555444'))?.id).toBe(c.id); });
