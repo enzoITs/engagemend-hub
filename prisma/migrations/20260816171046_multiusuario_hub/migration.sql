@@ -4,15 +4,7 @@
   - Added the required column `ownerId` to the `communities` table without a default value. This is not possible if the table is not empty.
 
 */
--- AlterTable
-ALTER TABLE "communities" ADD COLUMN     "disabledAt" TIMESTAMP(3),
-ADD COLUMN     "ownerId" TEXT NOT NULL;
-
--- AlterTable
-ALTER TABLE "level_transitions" ADD COLUMN     "communityId" TEXT,
-ADD COLUMN     "readAt" TIMESTAMP(3);
-
--- CreateTable
+-- Usuário proprietário das comunidades legadas, criado antes do backfill.
 CREATE TABLE "users" (
     "id" TEXT NOT NULL,
     "email" TEXT NOT NULL,
@@ -20,6 +12,19 @@ CREATE TABLE "users" (
 
     CONSTRAINT "users_pkey" PRIMARY KEY ("id")
 );
+
+CREATE UNIQUE INDEX "users_email_key" ON "users"("email");
+INSERT INTO "users" ("id", "email") VALUES ('legacy-owner', 'legacy@engagemend.local');
+
+-- AlterTable
+ALTER TABLE "communities" ADD COLUMN     "disabledAt" TIMESTAMP(3),
+ADD COLUMN     "ownerId" TEXT;
+UPDATE "communities" SET "ownerId" = 'legacy-owner' WHERE "ownerId" IS NULL;
+ALTER TABLE "communities" ALTER COLUMN "ownerId" SET NOT NULL;
+
+-- AlterTable
+ALTER TABLE "level_transitions" ADD COLUMN     "communityId" TEXT,
+ADD COLUMN     "readAt" TIMESTAMP(3);
 
 -- CreateTable
 CREATE TABLE "magic_link_tokens" (
@@ -58,9 +63,6 @@ CREATE TABLE "jobs" (
 
     CONSTRAINT "jobs_pkey" PRIMARY KEY ("id")
 );
-
--- CreateIndex
-CREATE UNIQUE INDEX "users_email_key" ON "users"("email");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "magic_link_tokens_tokenHash_key" ON "magic_link_tokens"("tokenHash");
